@@ -3,7 +3,9 @@ VRC2CVR is a VRCSDK2 replacement that help converting existing VRC avatars to Ch
 
 It replaces the VRC SDK, so if you have it in your project you should remove it.
 
-To install it just import the unitypackage.
+To install it just import the unitypackage. You can get the latest release **here:** https://github.com/ZettaiVR/VRC2CVR/releases/ 
+
+You also need to have the ChilloutVR CCK imported to your project to make the converter work, and to upload avatars there.
 
 Features:
 * Converts the VRC Avatar Descriptor to a CVR Avatar script and carries over viewpoint and viseme settings
