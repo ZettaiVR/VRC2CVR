@@ -13,6 +13,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System;
 using System.Linq;
+using ABI.CCK.Components;
 
 [CustomEditor(typeof(VRCSDK2.VRC_AvatarDescriptor))]
 public class AvatarDescriptorEditor : Editor
@@ -235,53 +236,13 @@ public class AvatarDescriptorEditor : Editor
             avatar.useVisemeLipsync = false;
         }
         //copy view position
+        
         avatar.viewPosition = avatarDescriptor.ViewPosition;
+        
         //guess voice position from 'oh' blendshape
         if (avatar.useVisemeLipsync)
         {
-            float smoothing = 0.001f * selectedMesh.sharedMesh.bounds.max.magnitude; //the amount of minimum vert movement when we consider it moving the mouth. too low and it might get inaccurate results, too high and it fails to find any verts moving at all.
-            int index = selectedMesh.sharedMesh.GetBlendShapeIndex(avatar.visemeBlendshapes[avatar.visemeBlendshapes.Length - 1]);
-            var ohBlendVerts = new Vector3[selectedMesh.sharedMesh.vertexCount];
-            var ohBlendNormals = new Vector3[selectedMesh.sharedMesh.vertexCount];
-            var ohBlendTangents = new Vector3[selectedMesh.sharedMesh.vertexCount]; // Copy blend shape data from myMesh to tmpMesh
-            var blendVerts = new Vector3[selectedMesh.sharedMesh.vertexCount];
-            var meshVerts = selectedMesh.sharedMesh.vertices; //caching this makes it literally 100x faster. 
-            var rootScale = selectedMesh.rootBone.transform.lossyScale.magnitude; //scale with armature scale, ie. when Armature is scaled at magnitude 100 instead of 1.
-            int j = 0; //moving vert counter
-            try
-            {
-                selectedMesh.sharedMesh.GetBlendShapeFrameVertices(index, selectedMesh.sharedMesh.GetBlendShapeFrameCount(index) - 1, ohBlendVerts, ohBlendNormals, ohBlendTangents);
-                for (int i = 0; i < ohBlendVerts.Length; i++)
-                {
-                    if (ohBlendVerts[i].magnitude > smoothing / rootScale)
-                    {
-                        blendVerts[j] = meshVerts[i];
-                        j++;
-                    }
-                }
-                var ohverts = new Vector3[j];
-                for (int i = 0; i < j; i++)
-                {
-                    ohverts[i] = blendVerts[i];
-                }
-
-                var posAverage = new Vector3(
-                    ohverts.Average(x => x.x),
-                    ohverts.Average(x => x.y),
-                    ohverts.Average(x => x.z)
-                    );
-                Debug.Log($"mesh vert count: {meshVerts.Length}, blendshape vert count: {j} ({Mathf.Round(j * 10000f / meshVerts.Length) / 100f}%), raw position: {posAverage}");
-                var voicePoint = selectedMesh.transform.TransformPoint(posAverage) - avatar.transform.position;
-                avatar.voicePosition = new Vector3(
-                    (Mathf.Round(voicePoint.x * 1000f) / 1000f),
-                    (Mathf.Round(voicePoint.y * 1000f) / 1000f),
-                    (Mathf.Round(voicePoint.z * 1000f) / 1000f)
-                    );
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning(e.Message);
-            }
+            avatar.voicePosition = GetAvgPositionFromBlendshape(avatar.transform.position, selectedMesh, avatar.visemeBlendshapes[avatar.visemeBlendshapes.Length - 1]);
         }
         else
         {
@@ -298,6 +259,53 @@ public class AvatarDescriptorEditor : Editor
         var end = DateTime.Now;
         var elapsed = (end - start).TotalMilliseconds;
         Debug.Log($"Conversion took {elapsed} ms.");
+    }
+    public Vector3 GetAvgPositionFromBlendshape(Vector3 avatarRoot, SkinnedMeshRenderer skinnedMesh, string blendShapeName)
+    {
+        float smoothing = 0.001f * skinnedMesh.sharedMesh.bounds.max.magnitude; //the amount of minimum vert movement when we consider it moving the mouth. too low and it might get inaccurate results, too high and it fails to find any verts moving at all.
+        int index = skinnedMesh.sharedMesh.GetBlendShapeIndex(blendShapeName);
+        var ohBlendVerts = new Vector3[skinnedMesh.sharedMesh.vertexCount];
+        var ohBlendNormals = new Vector3[skinnedMesh.sharedMesh.vertexCount];
+        var ohBlendTangents = new Vector3[skinnedMesh.sharedMesh.vertexCount]; // Copy blend shape data from myMesh to tmpMesh
+        var blendVerts = new Vector3[skinnedMesh.sharedMesh.vertexCount];
+        var meshVerts = skinnedMesh.sharedMesh.vertices; //caching this makes it literally 100x faster. 
+        var rootScale = skinnedMesh.rootBone.transform.lossyScale.magnitude; //scale with armature scale, ie. when Armature is scaled at magnitude 100 instead of 1.
+        int j = 0; //moving vert counter
+        try
+        {
+            skinnedMesh.sharedMesh.GetBlendShapeFrameVertices(index, skinnedMesh.sharedMesh.GetBlendShapeFrameCount(index) - 1, ohBlendVerts, ohBlendNormals, ohBlendTangents);
+            for (int i = 0; i < ohBlendVerts.Length; i++)
+            {
+                if (ohBlendVerts[i].magnitude > smoothing / rootScale)
+                {
+                    blendVerts[j] = meshVerts[i];
+                    j++;
+                }
+            }
+            var ohverts = new Vector3[j];
+            for (int i = 0; i < j; i++)
+            {
+                ohverts[i] = blendVerts[i];
+            }
+
+            var posAverage = new Vector3(
+                ohverts.Average(x => x.x),
+                ohverts.Average(x => x.y),
+                ohverts.Average(x => x.z)
+                );
+            Debug.Log($"mesh vert count: {meshVerts.Length}, blendshape vert count: {j} ({Mathf.Round(j * 10000f / meshVerts.Length) / 100f}%), raw position: {posAverage}");
+            var result = skinnedMesh.transform.TransformPoint(posAverage) - avatarRoot;
+            return new Vector3(
+                (Mathf.Round(result.x * 1000f) / 1000f),
+                (Mathf.Round(result.y * 1000f) / 1000f),
+                (Mathf.Round(result.z * 1000f) / 1000f)
+                );
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning(e.Message);
+        }
+        return Vector3.zero;
     }
     public override void OnInspectorGUI()
     {
@@ -365,12 +373,7 @@ public class AvatarDescriptorEditor : Editor
         {
             if (EditorUtility.DisplayDialog("Remove VRC components", "Are you sure you want to remove the VRC avatar descriptor from this avatar?", "Yes", "No"))
             {
-                GameObject _avatar = avatarDescriptor.gameObject;
-                RemoveVRCAvatarComponents(_avatar);
-                pipelineManager = avatarDescriptor.gameObject.GetComponent<VRC.Core.PipelineManager>();
-                DestroyImmediate(avatarDescriptor);
-                if(pipelineManager != null) DestroyImmediate(pipelineManager);
-                EditorUtility.SetDirty(_avatar);
+                RemoveVRCAvatarComponents(avatarDescriptor.gameObject);
                 return;
             }
         }
@@ -389,6 +392,10 @@ public class AvatarDescriptorEditor : Editor
         {
             DestroyImmediate(component);
         }
+        pipelineManager = avatarDescriptor.gameObject.GetComponent<VRC.Core.PipelineManager>();
+        DestroyImmediate(avatarDescriptor);
+        if (pipelineManager != null) DestroyImmediate(pipelineManager);
+        EditorUtility.SetDirty(avatar);
     }
 
     void FillVisemeArray(int visemeCount, string[] visemes) 
