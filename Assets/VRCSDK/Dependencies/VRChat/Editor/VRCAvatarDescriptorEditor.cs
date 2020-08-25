@@ -255,8 +255,8 @@ public class AvatarDescriptorEditor : Editor
                 {
                     if (ohBlendVerts[i].magnitude > smoothing / rootScale)
                     {
-                        j++;
                         blendVerts[j] = meshVerts[i];
+                        j++;
                     }
                 }
                 var ohverts = new Vector3[j];
@@ -366,6 +366,7 @@ public class AvatarDescriptorEditor : Editor
             if (EditorUtility.DisplayDialog("Remove VRC components", "Are you sure you want to remove the VRC avatar descriptor from this avatar?", "Yes", "No"))
             {
                 GameObject _avatar = avatarDescriptor.gameObject;
+                RemoveVRCAvatarComponents(_avatar);
                 pipelineManager = avatarDescriptor.gameObject.GetComponent<VRC.Core.PipelineManager>();
                 DestroyImmediate(avatarDescriptor);
                 if(pipelineManager != null) DestroyImmediate(pipelineManager);
@@ -375,6 +376,21 @@ public class AvatarDescriptorEditor : Editor
         }
         EditorGUILayout.LabelField("Unity Version", avatarDescriptor.unityVersion);
     }
+
+    private void RemoveVRCAvatarComponents(GameObject avatar)
+    {
+        var IKFollowers = avatar.GetComponentsInChildren<VRCSDK2.VRC_IKFollower>(true);
+        var VRCStations = avatar.GetComponentsInChildren<VRCSDK2.VRC_Station>(true);
+        foreach (var component in IKFollowers) 
+        {
+            DestroyImmediate(component);
+        }
+        foreach (var component in VRCStations)
+        {
+            DestroyImmediate(component);
+        }
+    }
+
     void FillVisemeArray(int visemeCount, string[] visemes) 
     {
         int next;
