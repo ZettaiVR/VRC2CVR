@@ -74,7 +74,10 @@ public class AvatarDescriptorEditor : Editor
         ("LocCrouchLeft","CROUCHWALKRT"),
         ("LocWalkingStrafeLeft","STRAFERT"),
     };
-    
+    private bool removeIKFollowers = false;
+    private bool removeAudio = false;
+    private bool removeStations = false;
+    private bool removeDescriptor = false;
     private AnimatorOverrideController ConvertOverrideController(AnimatorOverrideController CVRController, AnimatorOverrideController VRCControllerStand, AnimatorOverrideController VRCControllerSit)
     {
         if (VRCControllerStand == null && VRCControllerSit == null) 
@@ -337,7 +340,7 @@ public class AvatarDescriptorEditor : Editor
                     int current = blendShapeNames.FindIndex(x => x.Equals(avatarDescriptor.MouthOpenBlendShapeName));
 
                     string title = "Jaw Flap Blend Shape";
-                    if ((next = EditorGUILayout.Popup(title, current, blendShapeNames.ToArray())) >= 0) 
+                    if ((next = EditorGUILayout.Popup(title, current, blendShapeNames.ToArray())) >= 0)
                     {
                         avatarDescriptor.MouthOpenBlendShapeName = blendShapeNames[next];
                         EditorUtility.SetDirty(target);
@@ -353,8 +356,8 @@ public class AvatarDescriptorEditor : Editor
                 avatarDescriptor.VisemeSkinnedMesh = (SkinnedMeshRenderer)EditorGUILayout.ObjectField("Face Mesh", avatarDescriptor.VisemeSkinnedMesh, typeof(SkinnedMeshRenderer), true);
                 if (avatarDescriptor.VisemeSkinnedMesh != null)
                 {
-					DetermineBlendShapeNames();
-					FillVisemeNames();
+                    DetermineBlendShapeNames();
+                    FillVisemeNames();
                     int visemeCount = (int)VRCSDK2.VRC_AvatarDescriptor.Viseme.Count;
 
                     if (avatarDescriptor.VisemeBlendShapes == null || avatarDescriptor.VisemeBlendShapes.Length != visemeCount)
@@ -369,12 +372,27 @@ public class AvatarDescriptorEditor : Editor
                 }
                 break;
         }
-        if (GUILayout.Button("Remove VRC avatar components"))
+        GUILayout.Space(5);
+        GUILayout.Label("VRC avatar components to remove:");
+        removeDescriptor = EditorGUILayout.Toggle("Avatar descriptor", removeDescriptor);
+        removeIKFollowers = EditorGUILayout.Toggle("IKFollowers", removeIKFollowers);
+        removeAudio = EditorGUILayout.Toggle("SpatialAudioSources", removeAudio);
+        removeStations = EditorGUILayout.Toggle("Stations", removeStations);
+        if (removeIKFollowers || removeAudio || removeStations || removeDescriptor)
         {
-            if (EditorUtility.DisplayDialog("Remove VRC components", "Are you sure you want to remove the VRC avatar descriptor from this avatar?", "Yes", "No"))
+            if (GUILayout.Button("Remove VRC avatar components"))
             {
-                RemoveVRCAvatarComponents(avatarDescriptor.gameObject);
-                return;
+                List<string> componentNames = new List<string>();
+                if (removeDescriptor) componentNames.Add("- Avatar descriptor");
+                if (removeIKFollowers) componentNames.Add("- IKFollowers");
+                if (removeAudio) componentNames.Add("- SpatialAudioSources");
+                if (removeStations) componentNames.Add("- Stations (chairs)");
+                if (EditorUtility.DisplayDialog("Remove VRC components", $"Are you sure you want to remove the selected VRC components from this avatar? \n{string.Join("\n", componentNames)}",
+                    "Yes", "No"))
+                {
+                    RemoveVRCAvatarComponents(avatarDescriptor.gameObject);
+                    return;
+                }
             }
         }
         EditorGUILayout.LabelField("Unity Version", avatarDescriptor.unityVersion);
@@ -382,19 +400,36 @@ public class AvatarDescriptorEditor : Editor
 
     private void RemoveVRCAvatarComponents(GameObject avatar)
     {
-        var IKFollowers = avatar.GetComponentsInChildren<VRCSDK2.VRC_IKFollower>(true);
-        var VRCStations = avatar.GetComponentsInChildren<VRCSDK2.VRC_Station>(true);
-        foreach (var component in IKFollowers) 
+        if (removeIKFollowers)
         {
-            DestroyImmediate(component);
+            var IKFollowers = avatar.GetComponentsInChildren<VRCSDK2.VRC_IKFollower>(true); 
+            foreach (var component in IKFollowers)
+            {
+                DestroyImmediate(component);
+            }
         }
-        foreach (var component in VRCStations)
+        if (removeAudio)
         {
-            DestroyImmediate(component);
+            var VRCAudio = avatar.GetComponentsInChildren<VRCSDK2.VRC_SpatialAudioSource>(true);
+            foreach (var component in VRCAudio)
+            {
+                DestroyImmediate(component);
+            }
         }
-        pipelineManager = avatarDescriptor.gameObject.GetComponent<VRC.Core.PipelineManager>();
-        DestroyImmediate(avatarDescriptor);
-        if (pipelineManager != null) DestroyImmediate(pipelineManager);
+        if (removeStations) 
+        {
+            var VRCStations = avatar.GetComponentsInChildren<VRCSDK2.VRC_Station>(true);
+            foreach (var component in VRCStations)
+            {
+                DestroyImmediate(component);
+            }
+        }
+        if (removeDescriptor)
+        {
+            pipelineManager = avatarDescriptor.gameObject.GetComponent<VRC.Core.PipelineManager>();
+            DestroyImmediate(avatarDescriptor);
+            if (pipelineManager != null) DestroyImmediate(pipelineManager);
+        }
         EditorUtility.SetDirty(avatar);
     }
 
