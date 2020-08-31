@@ -446,7 +446,7 @@ public class AvatarDescriptorEditor : Editor
             if ((next = EditorGUILayout.Popup(title, current, blendShapeNames.ToArray())) >= 0)
             {
                 avatarDescriptor.VisemeBlendShapes[i] = blendShapeNames[next];
-                EditorUtility.SetDirty(target);
+                if (next != current) EditorUtility.SetDirty(target);
             }
         }
     }
