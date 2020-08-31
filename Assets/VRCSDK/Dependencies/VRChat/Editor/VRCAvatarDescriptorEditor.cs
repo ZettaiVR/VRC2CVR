@@ -245,7 +245,7 @@ public class AvatarDescriptorEditor : Editor
         //guess voice position from 'oh' blendshape
         if (avatar.useVisemeLipsync)
         {
-            avatar.voicePosition = GetAvgPositionFromBlendshape(avatar.transform.position, selectedMesh, avatar.visemeBlendshapes[avatar.visemeBlendshapes.Length - 1]);
+            avatar.voicePosition = GetAvgPositionFromBlendshape(avatar.transform, selectedMesh, avatar.visemeBlendshapes[avatar.visemeBlendshapes.Length - 1]);
         }
         else
         {
@@ -263,7 +263,7 @@ public class AvatarDescriptorEditor : Editor
         var elapsed = (end - start).TotalMilliseconds;
         Debug.Log($"Conversion took {elapsed} ms.");
     }
-    public Vector3 GetAvgPositionFromBlendshape(Vector3 avatarRoot, SkinnedMeshRenderer skinnedMesh, string blendShapeName)
+    public Vector3 GetAvgPositionFromBlendshape(Transform avatarRoot, SkinnedMeshRenderer skinnedMesh, string blendShapeName)
     {
         float smoothing = 0.001f * skinnedMesh.sharedMesh.bounds.max.magnitude; //the amount of minimum vert movement when we consider it moving the mouth. too low and it might get inaccurate results, too high and it fails to find any verts moving at all.
         int index = skinnedMesh.sharedMesh.GetBlendShapeIndex(blendShapeName);
@@ -296,8 +296,11 @@ public class AvatarDescriptorEditor : Editor
                 ohverts.Average(x => x.y),
                 ohverts.Average(x => x.z)
                 );
-            Debug.Log($"mesh vert count: {meshVerts.Length}, blendshape vert count: {j} ({Mathf.Round(j * 10000f / meshVerts.Length) / 100f}%), raw position: {posAverage}");
-            var result = skinnedMesh.transform.TransformPoint(posAverage) - avatarRoot;
+            Debug.Log($"mesh vert count: {meshVerts.Length}, blendshape vert count: {j} ({Mathf.Round(j * 10000f / meshVerts.Length) / 100f}%), raw position: ({posAverage * rootScale})");
+            var _rot = avatarRoot.rotation;
+            avatarRoot.rotation = Quaternion.identity;
+            var result = skinnedMesh.transform.TransformPoint(posAverage) - avatarRoot.position;
+            avatarRoot.rotation = _rot;
             return new Vector3(
                 (Mathf.Round(result.x * 1000f) / 1000f),
                 (Mathf.Round(result.y * 1000f) / 1000f),
